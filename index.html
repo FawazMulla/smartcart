@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Smart Cart — Mobile PWA App</title>
+  <meta name="description" content="Mobile-first Smart Shopping Cart PWA with QR Cart Pairing, 1D Barcode Scanning, and Simulated Weight Verification Engine." />
+  <link rel="manifest" href="./manifest.json" />
+  <meta name="theme-color" content="#0a0d14" />
+  <link rel="stylesheet" href="./styles/main.css" />
+</head>
+<body>
+
+  <div id="app-container">
+    
+    <!-- Application Header -->
+    <header class="app-header">
+      <div class="brand">
+        <div class="brand-icon">🛒</div>
+        <div>
+          <div class="brand-title">Smart Cart</div>
+          <div class="brand-subtitle">Mobile Shopping PWA</div>
+        </div>
+      </div>
+
+      <div class="cart-badge">
+        <span class="cart-status-dot" id="badge-status-dot"></span>
+        <span id="badge-cart-id">No Cart</span>
+      </div>
+    </header>
+
+    <!-- Counter Escalation Warning Banner (Shows when verification fails) -->
+    <div id="counter-escalation-banner" style="display:none; background:#ef4444; color:white; padding:10px 16px; font-size:12px; font-weight:bold; justify-content:space-between; align-items:center; z-index:30;">
+      <span>⚠️ Verification Issue! Proceed to Checkout Counter</span>
+      <button onclick="window.app.showCounterAlert('Cart requires cashier verification.')" style="background:white; color:#ef4444; border:none; padding:4px 10px; border-radius:4px; font-weight:bold; cursor:pointer;">Details</button>
+    </div>
+
+    <!-- Application Body Router Views -->
+    <main class="app-body">
+
+      <!-- View 1: Cart QR Pairing -->
+      <section id="view-pairing" class="view-section active">
+        <div class="glass-card hero-card">
+          <div class="hero-icon">📷</div>
+          <div>
+            <h2 style="font-size:20px; font-weight:700;">Connect to Shopping Cart</h2>
+            <p style="font-size:13px; color:var(--text-muted); margin-top:4px;">
+              Scan the unique QR code attached to your physical shopping cart to begin.
+            </p>
+          </div>
+
+          <!-- Camera Stream for Cart QR -->
+          <div class="camera-wrapper" style="height:200px;">
+            <video id="pair-camera-feed" class="camera-video" playsinline muted></video>
+            <div class="scanner-overlay">
+              <div class="reticle-box" style="width:160px; height:160px; border-color:var(--accent-primary);">
+                <div class="scan-laser"></div>
+              </div>
+            </div>
+          </div>
+
+          <div style="width:100%; text-align:left;">
+            <p style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:8px;">Quick Test Presets (Select Cart ID):</p>
+            <div class="preset-grid">
+              <button class="preset-btn" data-cart-preset="CART-001">CART-001</button>
+              <button class="preset-btn" data-cart-preset="CART-002">CART-002</button>
+              <button class="preset-btn" data-cart-preset="CART-003">CART-003</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- View 2: Product Barcode Scanner (1D Barcodes Only) -->
+      <section id="view-scanner" class="view-section">
+        <div class="glass-card scanner-card">
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <h3 style="font-size:17px; font-weight:700;">Scan Product Barcode</h3>
+              <p style="font-size:12px; color:var(--text-muted);">Point camera at item 1D barcode</p>
+            </div>
+            <span style="font-size:11px; background:rgba(99,102,241,0.15); color:var(--accent-primary); padding:4px 10px; border-radius:99px; font-weight:600;">1D Barcode</span>
+          </div>
+
+          <!-- Camera Viewfinder -->
+          <div class="camera-wrapper">
+            <video id="camera-feed" class="camera-video" playsinline muted></video>
+            <div class="scanner-overlay">
+              <div class="reticle-box">
+                <div class="scan-laser"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Preset 1D Barcode Quick Test Selector -->
+          <div>
+            <p style="font-size:12px; font-weight:600; color:var(--text-muted); margin-bottom:8px;">Sample Store Products (Tap to Scan):</p>
+            <div class="barcode-presets-scroll">
+              <button class="barcode-chip" data-barcode-chip="8901234567890">
+                <span>🥤</span> Coca-Cola (350g)
+              </button>
+              <button class="barcode-chip" data-barcode-chip="8901234567891">
+                <span>🥔</span> Lay's Chips (50g)
+              </button>
+              <button class="barcode-chip" data-barcode-chip="8901234567892">
+                <span>🥛</span> Amul Milk (1030g)
+              </button>
+              <button class="barcode-chip" data-barcode-chip="8901234567893">
+                <span>🍫</span> Cadbury Silk (150g)
+              </button>
+              <button class="barcode-chip" data-barcode-chip="8901234567894">
+                <span>🍪</span> Cookies (120g)
+              </button>
+              <button class="barcode-chip" data-barcode-chip="8901234567895">
+                <span>⚡</span> Red Bull (260g)
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- View 3: Digital Cart Management -->
+      <section id="view-cart" class="view-section">
+        <div class="glass-card" style="padding:16px;">
+          <div class="cart-header-summary">
+            <div>
+              <h3 style="font-size:18px; font-weight:700;">My Cart</h3>
+              <p id="cart-items-count" style="font-size:12px; color:var(--text-muted);">0 Items</p>
+            </div>
+            <div style="text-align:right;">
+              <div id="cart-total-price" style="font-size:22px; font-weight:800; color:var(--accent-primary);">₹0</div>
+              <p id="cart-total-weight" style="font-size:12px; color:var(--text-muted); font-family:var(--font-mono);">0g Expected</p>
+            </div>
+          </div>
+
+          <div id="cart-items-list" class="cart-items-list" style="margin-top:16px;">
+            <!-- Items rendered dynamically via app.js -->
+          </div>
+
+          <div style="margin-top:20px; display:flex; flex-direction:column; gap:10px;">
+            <button class="btn-primary" onclick="window.app.executeCheckout()">
+              <span>🔒</span> Complete Digital Checkout
+            </button>
+          </div>
+        </div>
+      </section>
+
+
+      <!-- View 4: Settings & Physical ESP8266 Telemetry -->
+      <section id="view-settings" class="view-section">
+        <div class="glass-card">
+          <h3 style="font-size:17px; font-weight:700; margin-bottom:12px;">Hardware & Simulation Settings</h3>
+          
+          <div class="form-group" style="margin-bottom:16px;">
+            <label class="form-label">Physical ESP8266 IP Address (Wi-Fi Bridge)</label>
+            <input id="input-esp-ip" type="text" class="input-field" placeholder="192.168.4.1" onchange="window.hardwareAPI.setHardwareIp(this.value)" />
+            <p style="font-size:11px; color:var(--text-subtle);">Connect your phone to the ESP8266 AP to send real LCD & Buzzer updates.</p>
+          </div>
+
+          <div class="form-group" style="margin-bottom:16px;">
+            <label class="form-label">Software Weight Verification Test Mode (Phase 1)</label>
+            <select class="input-field" style="background:#121826;" onchange="window.cartState.setVerificationMode(this.value)">
+              <option value="NORMAL">Normal Mode (Verification Pass)</option>
+              <option value="FORCE_FAIL">Force Failure Mode (Simulate Mismatch & Counter Escalation)</option>
+            </select>
+          </div>
+
+          <button class="btn-secondary" onclick="window.cartState.disconnectCart(); window.app.switchView('pairing');">
+            <span>🔌</span> Disconnect Cart Session
+          </button>
+        </div>
+      </section>
+
+
+      <!-- View 5: Digital Checkout Receipt -->
+      <section id="view-receipt" class="view-section">
+        <div id="receipt-container">
+          <!-- Receipt rendered dynamically -->
+        </div>
+        <button class="btn-primary" onclick="window.cartState.disconnectCart(); window.app.switchView('pairing');">
+          <span>🛒</span> Start New Shopping Session
+        </button>
+      </section>
+
+    </main>
+
+    <!-- Modal 1: Product Add Confirmation ("Place in Cart") -->
+    <div id="modal-add-confirm" class="modal-overlay">
+      <div class="modal-box">
+        <div class="modal-header">
+          <div class="modal-title">Item Scanned</div>
+          <span style="font-size:24px;" id="modal-product-icon">📦</span>
+        </div>
+
+        <div style="background:rgba(255,255,255,0.03); border:1px solid var(--glass-border); padding:16px; border-radius:12px; display:flex; justify-content:space-between; align-items:center;">
+          <div>
+            <h3 id="modal-product-name" style="font-size:16px; font-weight:700;">Product Name</h3>
+            <p id="modal-product-weight" style="font-size:13px; color:var(--text-muted);">0g</p>
+          </div>
+          <div id="modal-product-price" style="font-size:20px; font-weight:800; color:var(--accent-primary);">₹0</div>
+        </div>
+
+        <div style="background:rgba(99,102,241,0.1); border:1px solid rgba(99,102,241,0.3); border-radius:10px; padding:12px; text-align:center;">
+          <p style="font-size:13px; font-weight:600; color:#a5b4fc;">👇 Place product into physical cart to verify weight</p>
+        </div>
+
+        <div style="display:flex; gap:10px; margin-top:8px;">
+          <button class="btn-secondary" onclick="document.getElementById('modal-add-confirm').classList.remove('active');">Cancel</button>
+          <button class="btn-primary" onclick="window.app.confirmProductAdd()">Confirm Item</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal 2: Two-Step Item Removal Modal -->
+    <div id="modal-remove-confirm" class="modal-overlay">
+      <div class="modal-box">
+        <div class="modal-header">
+          <div class="modal-title">Confirm Physical Removal</div>
+          <span style="font-size:24px;">🗑️</span>
+        </div>
+
+        <div>
+          <h3 id="modal-remove-title" style="font-size:16px; font-weight:700; margin-bottom:6px;">Product</h3>
+          <p id="modal-remove-desc" style="font-size:13px; color:var(--text-muted);">Please physically remove item from cart.</p>
+        </div>
+
+        <div style="background:rgba(245,158,11,0.1); border:1px solid rgba(245,158,11,0.3); border-radius:10px; padding:12px; text-align:center;">
+          <p style="font-size:12px; color:var(--accent-warning); font-weight:600;">⚠️ Digital bill will only update AFTER weight drop is verified.</p>
+        </div>
+
+        <div style="display:flex; gap:10px; margin-top:8px;">
+          <button class="btn-secondary" onclick="window.app.cancelItemRemoval()">Cancel</button>
+          <button class="btn-primary" style="background:linear-gradient(135deg, #ef4444 0%, #dc2626 100%);" onclick="window.app.confirmItemRemoval()">Item Removed</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal 3: Verification Failure & Counter Escalation Alert -->
+    <div id="modal-counter-alert" class="modal-overlay">
+      <div class="modal-box" style="border-color:rgba(239,68,68,0.5);">
+        <div class="counter-alert-box">
+          <div class="counter-alert-icon">🛑</div>
+          <h2 style="font-size:20px; font-weight:800; color:var(--accent-danger);">Verification Failed!</h2>
+          <p id="counter-alert-msg" style="font-size:13px; color:var(--text-muted);">
+            Expected weight change did not match. Please proceed to a checkout counter for manual assistance.
+          </p>
+        </div>
+
+        <button class="btn-primary" style="background:linear-gradient(135deg, #ef4444 0%, #dc2626 100%);" onclick="window.app.closeCounterAlert()">Acknowledge</button>
+      </div>
+    </div>
+
+    <!-- Bottom Navigation Bar -->
+    <nav class="bottom-nav">
+      <button id="nav-pairing" class="nav-item active" data-nav="pairing">
+        <span class="nav-icon">📷</span>
+        <span>Pair Cart</span>
+      </button>
+      <button id="nav-scanner" class="nav-item" data-nav="scanner">
+        <span class="nav-icon">🔍</span>
+        <span>Scan 1D</span>
+      </button>
+      <button id="nav-cart" class="nav-item" data-nav="cart">
+        <span class="nav-icon">🛒</span>
+        <span>My Cart</span>
+      </button>
+      <button id="nav-settings" class="nav-item" data-nav="settings">
+        <span class="nav-icon">⚙️</span>
+        <span>Settings</span>
+      </button>
+    </nav>
+
+  </div>
+
+  <!-- Scripts -->
+  <script src="./js/products-db.js"></script>
+  <script src="./js/hardware-api.js"></script>
+  <script src="./js/cart-state.js"></script>
+  <script src="./js/scanner.js"></script>
+  <script src="./js/app.js"></script>
+
+</body>
+</html>
