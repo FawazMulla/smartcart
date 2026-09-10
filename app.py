@@ -110,18 +110,6 @@ def queue_hardware_command(cart_id, command_type, product_info=None):
     print(f"[HARDWARE COMMAND QUEUED] cart={cart_id} command={command_type}")
     return cmd_item
 
-# --- STATIC FILE ROUTES FOR PWA ---
-
-@app.route('/')
-def serve_index():
-    return send_from_directory('.', 'index.html')
-
-@app.route('/<path:path>')
-def serve_static(path):
-    if os.path.exists(os.path.join('.', path)):
-        return send_from_directory('.', path)
-    return send_from_directory('.', 'index.html')
-
 # --- API ENDPOINTS ---
 
 @app.route('/api/health', methods=['GET'])
@@ -308,9 +296,22 @@ def hardware_update():
         TELEMETRY_LOGS.pop(0)
     return jsonify({"success": True, "message": "Hardware telemetry received", "payload": payload}), 200
 
+# --- STATIC FILE & CATCH-ALL ROUTES FOR PWA (MUST BE LAST) ---
+
+@app.route('/')
+def serve_index():
+    return send_from_directory('.', 'index.html')
+
+@app.route('/<path:path>')
+def serve_static(path):
+    if os.path.exists(os.path.join('.', path)):
+        return send_from_directory('.', path)
+    return send_from_directory('.', 'index.html')
+
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
     print(f"[*] Starting Smart Cart Python Flask app on http://0.0.0.0:{port}")
     app.run(host="0.0.0.0", port=port, debug=True)
+
 
 
