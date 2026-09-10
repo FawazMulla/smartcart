@@ -92,10 +92,30 @@ class SmartCartApp {
 
     const result = await window.cartState.addProduct(product);
     if (result.success) {
-      this.showToast(`Added ${product.name} to cart ✓`, 'success');
-      this.switchView('cart');
+      const count = result.totalItems || 1;
+      this.showToast(`Added ${product.name} (${count} item${count > 1 ? 's' : ''} in cart) ✓`, 'success');
+      // Remain on scanner view so user can scan multiple items continuously
+      this.switchView('scanner');
     } else {
       this.showCounterAlert(result.reason || "Verification Failed");
+    }
+  }
+
+  async increaseQuantity(cartItemId) {
+    const res = await window.cartState.increaseQuantity(cartItemId);
+    if (res.success) {
+      this.showToast(`Updated item quantity ✓`, 'success');
+    } else {
+      this.showCounterAlert(res.reason || "Quantity increase failed verification");
+    }
+  }
+
+  async decreaseQuantity(cartItemId) {
+    const res = await window.cartState.decreaseQuantity(cartItemId);
+    if (res.success) {
+      this.showToast(`Updated item quantity ✓`, 'success');
+    } else {
+      this.showCounterAlert(res.reason || "Quantity decrease failed verification");
     }
   }
 
@@ -105,7 +125,7 @@ class SmartCartApp {
 
     const modal = document.getElementById('modal-remove-confirm');
     document.getElementById('modal-remove-title').textContent = item.product.name;
-    document.getElementById('modal-remove-desc').textContent = `Please physically remove ${item.product.name} (${item.product.expectedWeight}g) from the cart to verify.`;
+    document.getElementById('modal-remove-desc').textContent = `Please physically remove ${item.product.name} (${item.product.expectedWeight * (item.quantity || 1)}g) from the cart to verify.`;
 
     modal.dataset.cartItemId = cartItemId;
     modal.classList.add('active');
@@ -229,9 +249,11 @@ class SmartCartApp {
     const cartWeightEl = document.getElementById('cart-total-weight');
     const cartCountEl = document.getElementById('cart-items-count');
 
+    const totalCount = window.cartState.getTotalItemCount();
+
     if (cartTotalEl) cartTotalEl.textContent = `₹${state.totalPrice}`;
     if (cartWeightEl) cartWeightEl.textContent = `${state.totalWeight}g`;
-    if (cartCountEl) cartCountEl.textContent = `${state.items.length} Items`;
+    if (cartCountEl) cartCountEl.textContent = `${totalCount} Item${totalCount !== 1 ? 's' : ''}`;
 
     if (cartList) {
       if (state.items.length === 0) {
@@ -251,13 +273,21 @@ class SmartCartApp {
               </div>
               <div class="item-details">
                 <h4>${item.product.name}</h4>
-                <p>Weight: ${item.product.expectedWeight}g | Barcode: ${item.product.barcode}</p>
+                <p>Weight: ${item.product.expectedWeight * (item.quantity || 1)}g (${item.product.expectedWeight}g ea)</p>
+                
+                <div class="qty-controls">
+                  <button class="qty-btn" onclick="window.app.decreaseQuantity('${item.cartItemId}')">-</button>
+                  <span class="qty-value">${item.quantity || 1}</span>
+                  <button class="qty-btn" onclick="window.app.increaseQuantity('${item.cartItemId}')">+</button>
+                </div>
+
                 ${item.status === 'PENDING_REMOVAL' ? '<span style="font-size:11px; color:var(--accent-warning); font-weight:bold;">Pending Physical Removal...</span>' : ''}
               </div>
             </div>
-            <div style="display:flex; flex-direction:column; align-items:flex-end;">
-              <div class="item-price-tag">₹${item.product.price}</div>
-              <button class="btn-remove-sm" onclick="window.app.requestItemRemoval('${item.cartItemId}')">
+            <div style="display:flex; flex-direction:column; align-items:flex-end; justify-content:space-between;">
+              <div class="item-price-tag">₹${item.product.price * (item.quantity || 1)}</div>
+              ${(item.quantity || 1) > 1 ? `<div style="font-size:10px; color:var(--text-muted);">₹${item.product.price} ea</div>` : ''}
+              <button class="btn-remove-sm" style="margin-top:8px;" onclick="window.app.requestItemRemoval('${item.cartItemId}')">
                 Remove
               </button>
             </div>

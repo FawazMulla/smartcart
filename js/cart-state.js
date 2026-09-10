@@ -84,14 +84,21 @@ class CartState {
   // Total expected weight of all verified items currently in cart
   getTotalExpectedWeight() {
     return this.items.reduce((sum, item) => {
-      return item.status === 'ADDED' ? sum + item.product.expectedWeight : sum;
+      return item.status === 'ADDED' ? sum + (item.product.expectedWeight * (item.quantity || 1)) : sum;
     }, 0);
   }
 
   // Total price calculation
   getTotalPrice() {
     return this.items.reduce((sum, item) => {
-      return item.status === 'ADDED' ? sum + item.product.price : sum;
+      return item.status === 'ADDED' ? sum + (item.product.price * (item.quantity || 1)) : sum;
+    }, 0);
+  }
+
+  // Total items count including quantities
+  getTotalItemCount() {
+    return this.items.reduce((sum, item) => {
+      return item.status === 'ADDED' ? sum + (item.quantity || 1) : sum;
     }, 0);
   }
 
@@ -186,15 +193,21 @@ class CartState {
     const verifyResult = await this.verifyWeightChangeAsync(product, 'ADD');
 
     if (verifyResult.pass) {
-      const cartItemId = `ITEM-${Date.now()}-${Math.floor(Math.random()*1000)}`;
-      const cartItem = {
-        cartItemId,
-        product,
-        addedAt: new Date().toISOString(),
-        status: 'ADDED'
-      };
+      const existing = this.items.find(i => i.product.barcode === product.barcode && i.status === 'ADDED');
+      if (existing) {
+        existing.quantity = (existing.quantity || 1) + 1;
+      } else {
+        const cartItemId = `ITEM-${Date.now()}-${Math.floor(Math.random()*1000)}`;
+        const cartItem = {
+          cartItemId,
+          product,
+          quantity: 1,
+          addedAt: new Date().toISOString(),
+          status: 'ADDED'
+        };
+        this.items.push(cartItem);
+      }
 
-      this.items.push(cartItem);
       this.savePersistedState();
 
       if (window.hardwareAPI) {
@@ -202,7 +215,7 @@ class CartState {
       }
       this.notify();
 
-      return { success: true, cartItem, verifyResult };
+      return { success: true, totalItems: this.getTotalItemCount(), verifyResult };
     } else {
       // Verification Failed -> Escalate to Counter
       this.status = 'COUNTER_REQUIRED';
@@ -214,6 +227,53 @@ class CartState {
       this.notify();
 
       return { success: false, verifyResult, reason: "Verification Failed. Proceed to Checkout Counter." };
+    }
+  }
+
+  // Increase item quantity (+ button)
+  async increaseQuantity(cartItemId) {
+    const item = this.items.find(i => i.cartItemId === cartItemId);
+    if (!item) return { success: false, reason: "Item not found" };
+
+    const verifyResult = await this.verifyWeightChangeAsync(item.product, 'ADD');
+    if (verifyResult.pass) {
+      item.quantity = (item.quantity || 1) + 1;
+      this.savePersistedState();
+      if (window.hardwareAPI) window.hardwareAPI.sendPassAdd(item.product.name, item.product.expectedWeight);
+      this.notify();
+      return { success: true, verifyResult };
+    } else {
+      this.status = 'COUNTER_REQUIRED';
+      this.savePersistedState();
+      if (window.hardwareAPI) window.hardwareAPI.sendFailVerification("Weight Mismatch on Quantity Increase");
+      this.notify();
+      return { success: false, verifyResult, reason: "Verification Failed on quantity increase" };
+    }
+  }
+
+  // Decrease item quantity (- button)
+  async decreaseQuantity(cartItemId) {
+    const itemIndex = this.items.findIndex(i => i.cartItemId === cartItemId);
+    if (itemIndex === -1) return { success: false, reason: "Item not found" };
+
+    const item = this.items[itemIndex];
+    const verifyResult = await this.verifyWeightChangeAsync(item.product, 'REMOVE');
+    if (verifyResult.pass) {
+      if ((item.quantity || 1) > 1) {
+        item.quantity -= 1;
+      } else {
+        this.items.splice(itemIndex, 1);
+      }
+      this.savePersistedState();
+      if (window.hardwareAPI) window.hardwareAPI.sendPassRemove(item.product.name, item.product.expectedWeight);
+      this.notify();
+      return { success: true, verifyResult };
+    } else {
+      this.status = 'COUNTER_REQUIRED';
+      this.savePersistedState();
+      if (window.hardwareAPI) window.hardwareAPI.sendFailVerification("Weight Mismatch on Quantity Decrease");
+      this.notify();
+      return { success: false, verifyResult, reason: "Verification Failed on quantity decrease" };
     }
   }
 
@@ -241,7 +301,7 @@ class CartState {
       this.savePersistedState();
 
       if (window.hardwareAPI) {
-        window.hardwareAPI.sendPassRemove(removed.product.name, removed.product.expectedWeight);
+        window.hardwareAPI.sendPassRemove(removed.product.name, removed.product.expectedWeight * (removed.quantity || 1));
       }
       this.notify();
 
@@ -278,6 +338,14 @@ class CartState {
       return { success: false, reason: "Verification failure unresolved. Must checkout at Counter." };
     }
 
+    const expandedItems = [];
+    this.items.forEach(i => {
+      const qty = i.quantity || 1;
+      for (let q = 0; q < qty; q++) {
+        expandedItems.push(i.product);
+      }
+    });
+
     const itemsPayload = this.items.map(i => i.product);
 
     try {
@@ -285,7 +353,7 @@ class CartState {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          items: itemsPayload,
+          items: expandedItems,
           cartId: this.cartId,
           sessionId: this.sessionId
         })
@@ -321,7 +389,7 @@ class CartState {
       cartId: this.cartId,
       sessionId: this.sessionId,
       timestamp: new Date().toLocaleString(),
-      items: [...itemsPayload],
+      items: [...expandedItems],
       totalWeight: this.getTotalExpectedWeight(),
       subtotal: subtotal,
       tax: tax,

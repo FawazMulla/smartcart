@@ -625,3 +625,45 @@ body {
 .input-field:focus {
   border-color: var(--accent-primary);
 }
+
+/* Quantity Controls */
+.qty-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  padding: 4px 8px;
+  margin-top: 6px;
+}
+
+.qty-btn {
+  background: rgba(99, 102, 241, 0.2);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  color: white;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  font-size: 15px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.qty-btn:active {
+  transform: scale(0.9);
+  background: var(--accent-primary);
+}
+
+.qty-value {
+  font-size: 13px;
+  font-weight: 700;
+  color: white;
+  min-width: 20px;
+  text-align: center;
+}
