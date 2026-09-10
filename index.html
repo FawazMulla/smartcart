@@ -153,9 +153,9 @@
           <h3 style="font-size:17px; font-weight:700; margin-bottom:12px;">Hardware & Simulation Settings</h3>
           
           <div class="form-group" style="margin-bottom:16px;">
-            <label class="form-label">Physical ESP8266 IP Address (Wi-Fi Bridge)</label>
+            <label class="form-label">Physical ESP8266 Local Dev IP (Optional)</label>
             <input id="input-esp-ip" type="text" class="input-field" placeholder="192.168.4.1" onchange="window.hardwareAPI.setHardwareIp(this.value)" />
-            <p style="font-size:11px; color:var(--text-subtle);">Connect your phone to the ESP8266 AP to send real LCD & Buzzer updates.</p>
+            <p style="font-size:11px; color:var(--text-subtle);">Production ESP8266 polls cloud commands over HTTPS via GET /api/hardware/commands/&lt;cart_id&gt;</p>
           </div>
 
           <div class="form-group" style="margin-bottom:16px;">

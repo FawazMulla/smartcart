@@ -108,6 +108,8 @@ class CartState {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          cartId: this.cartId || "CART-001",
+          product: product,
           currentTotalWeight,
           productWeight: product.expectedWeight,
           action,
